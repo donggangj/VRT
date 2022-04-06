@@ -28,9 +28,9 @@ def main():
                         help='input low-quality test video folder')
     parser.add_argument('--folder_gt', type=str, default=None,
                         help='input ground-truth test video folder')
-    parser.add_argument('--tile', type=int, nargs='+', default=[40,128,128],
+    parser.add_argument('--tile', type=int, nargs='+', default=[40, 128, 128],
                         help='Tile size, [0,0,0] for no tile during testing (testing as a whole)')
-    parser.add_argument('--tile_overlap', type=int, nargs='+', default=[2,20,20],
+    parser.add_argument('--tile_overlap', type=int, nargs='+', default=[2, 20, 20],
                         help='Overlapping of different tiles')
     args = parser.parse_args()
 
@@ -40,15 +40,15 @@ def main():
     model.eval()
     model = model.to(device)
     if 'vimeo' in args.folder_lq.lower():
-        test_set = VideoTestVimeo90KDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
-                                           'meta_info_file': "data/meta_info/meta_info_Vimeo90K_test_GT.txt",
-                                            'pad_sequence': True, 'num_frame': 7, 'cache_data': False})
+        test_set = VideoTestVimeo90KDataset({'dataroot_gt': args.folder_gt, 'dataroot_lq': args.folder_lq,
+                                             'meta_info_file': "data/meta_info/meta_info_Vimeo90K_test_GT.txt",
+                                             'pad_sequence': True, 'num_frame': 7, 'cache_data': False})
     elif args.folder_gt is not None:
-        test_set = VideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
-                                              'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
+        test_set = VideoRecurrentTestDataset({'dataroot_gt': args.folder_gt, 'dataroot_lq': args.folder_lq,
+                                              'sigma': args.sigma, 'num_frame': -1, 'cache_data': False})
     else:
-        test_set = SingleVideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
-                                              'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
+        test_set = SingleVideoRecurrentTestDataset({'dataroot_gt': args.folder_gt, 'dataroot_lq': args.folder_lq,
+                                                    'sigma': args.sigma, 'num_frame': -1, 'cache_data': False})
 
     test_loader = DataLoader(dataset=test_set, num_workers=2, batch_size=1, shuffle=False)
 
@@ -121,7 +121,7 @@ def main():
             test_results['psnr_y'].append(psnr_y)
             test_results['ssim_y'].append(ssim_y)
             print('Testing {:20s} ({:2d}/{}) - PSNR: {:.2f} dB; SSIM: {:.4f}; PSNR_Y: {:.2f} dB; SSIM_Y: {:.4f}'.
-                      format(folder[0], idx, len(test_loader), psnr, ssim, psnr_y, ssim_y))
+                  format(folder[0], idx, len(test_loader), psnr, ssim, psnr_y, ssim_y))
         else:
             print('Testing {:20s}  ({:2d}/{})'.format(folder[0], idx, len(test_loader)))
 
@@ -136,71 +136,85 @@ def main():
 
 
 def prepare_model_dataset(args):
-    ''' prepare model and dataset according to args.task. '''
+    """ prepare model and dataset according to args.task. """
 
     # define model
     if args.task == '001_VRT_videosr_bi_REDS_6frames':
-        model = net(upscale=4, img_size=[6,64,64], window_size=[6,8,8], depths=[8,8,8,8,8,8,8, 4,4,4,4, 4,4],
-                    indep_reconsts=[11,12], embed_dims=[120,120,120,120,120,120,120, 180,180,180,180, 180,180],
-                    num_heads=[6,6,6,6,6,6,6, 6,6,6,6, 6,6], pa_frames=2, deformable_groups=12)
+        model = net(upscale=4, img_size=[6, 64, 64], window_size=[6, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4, 4, 4],
+                    indep_reconsts=[11, 12],
+                    embed_dims=[120, 120, 120, 120, 120, 120, 120, 180, 180, 180, 180, 180, 180],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=2, deformable_groups=12)
         datasets = ['REDS4']
         args.scale = 4
-        args.window_size = [6,8,8]
+        args.window_size = [6, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task == '002_VRT_videosr_bi_REDS_16frames':
-        model = net(upscale=4, img_size=[16,64,64], window_size=[8,8,8], depths=[8,8,8,8,8,8,8, 4,4,4,4, 4,4],
-                    indep_reconsts=[11,12], embed_dims=[120,120,120,120,120,120,120, 180,180,180,180, 180,180],
-                    num_heads=[6,6,6,6,6,6,6, 6,6,6,6, 6,6], pa_frames=6, deformable_groups=24)
+        model = net(upscale=4, img_size=[16, 64, 64], window_size=[8, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4, 4, 4],
+                    indep_reconsts=[11, 12],
+                    embed_dims=[120, 120, 120, 120, 120, 120, 120, 180, 180, 180, 180, 180, 180],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=6, deformable_groups=24)
         datasets = ['REDS4']
         args.scale = 4
-        args.window_size = [8,8,8]
+        args.window_size = [8, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task in ['003_VRT_videosr_bi_Vimeo_7frames', '004_VRT_videosr_bd_Vimeo_7frames']:
-        model = net(upscale=4, img_size=[8,64,64], window_size=[8,8,8], depths=[8,8,8,8,8,8,8, 4,4,4,4, 4,4],
-                    indep_reconsts=[11,12], embed_dims=[120,120,120,120,120,120,120, 180,180,180,180, 180,180],
-                    num_heads=[6,6,6,6,6,6,6, 6,6,6,6, 6,6], pa_frames=4, deformable_groups=16)
-        datasets = ['Vid4'] # 'Vimeo'. Vimeo dataset is too large. Please refer to #training to download it.
+        model = net(upscale=4, img_size=[8, 64, 64], window_size=[8, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4, 4, 4],
+                    indep_reconsts=[11, 12],
+                    embed_dims=[120, 120, 120, 120, 120, 120, 120, 180, 180, 180, 180, 180, 180],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=4, deformable_groups=16)
+        datasets = ['Vid4']  # 'Vimeo'. Vimeo dataset is too large. Please refer to #training to download it.
         args.scale = 4
-        args.window_size = [8,8,8]
+        args.window_size = [8, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task in ['005_VRT_videodeblurring_DVD']:
-        model = net(upscale=1, img_size=[6,192,192], window_size=[6,8,8], depths=[8,8,8,8,8,8,8, 4,4, 4,4],
-                    indep_reconsts=[9,10], embed_dims=[96,96,96,96,96,96,96, 120,120, 120,120],
-                    num_heads=[6,6,6,6,6,6,6, 6,6, 6,6], pa_frames=2, deformable_groups=16)
+        model = net(upscale=1, img_size=[6, 192, 192], window_size=[6, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4],
+                    indep_reconsts=[9, 10],
+                    embed_dims=[96, 96, 96, 96, 96, 96, 96, 120, 120, 120, 120],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=2, deformable_groups=16)
         datasets = ['DVD10']
         args.scale = 1
-        args.window_size = [6,8,8]
+        args.window_size = [6, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task in ['006_VRT_videodeblurring_GoPro']:
-        model = net(upscale=1, img_size=[6,192,192], window_size=[6,8,8], depths=[8,8,8,8,8,8,8, 4,4, 4,4],
-                    indep_reconsts=[9,10], embed_dims=[96,96,96,96,96,96,96, 120,120, 120,120],
-                    num_heads=[6,6,6,6,6,6,6, 6,6, 6,6], pa_frames=2, deformable_groups=16)
+        model = net(upscale=1, img_size=[6, 192, 192], window_size=[6, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4],
+                    indep_reconsts=[9, 10],
+                    embed_dims=[96, 96, 96, 96, 96, 96, 96, 120, 120, 120, 120],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=2, deformable_groups=16)
         datasets = ['GoPro11-part1', 'GoPro11-part2']
         args.scale = 1
-        args.window_size = [6,8,8]
+        args.window_size = [6, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task in ['007_VRT_videodeblurring_REDS']:
-        model = net(upscale=1, img_size=[6,192,192], window_size=[6,8,8], depths=[8,8,8,8,8,8,8, 4,4, 4,4],
-                    indep_reconsts=[9,10], embed_dims=[96,96,96,96,96,96,96, 120,120, 120,120],
-                    num_heads=[6,6,6,6,6,6,6, 6,6, 6,6], pa_frames=2, deformable_groups=16)
+        model = net(upscale=1, img_size=[6, 192, 192], window_size=[6, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4],
+                    indep_reconsts=[9, 10],
+                    embed_dims=[96, 96, 96, 96, 96, 96, 96, 120, 120, 120, 120],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=2, deformable_groups=16)
         datasets = ['REDS4']
         args.scale = 1
-        args.window_size = [6,8,8]
+        args.window_size = [6, 8, 8]
         args.nonblind_denoising = False
 
     elif args.task == '008_VRT_videodenoising_DAVIS':
-        model = net(upscale=1, img_size=[6,192,192], window_size=[6,8,8], depths=[8,8,8,8,8,8,8, 4,4, 4,4],
-                    indep_reconsts=[9,10], embed_dims=[96,96,96,96,96,96,96, 120,120, 120,120],
-                    num_heads=[6,6,6,6,6,6,6, 6,6, 6,6], pa_frames=2, deformable_groups=16,
+        model = net(upscale=1, img_size=[6, 192, 192], window_size=[6, 8, 8],
+                    depths=[8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4],
+                    indep_reconsts=[9, 10],
+                    embed_dims=[96, 96, 96, 96, 96, 96, 96, 120, 120, 120, 120],
+                    num_heads=[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], pa_frames=2, deformable_groups=16,
                     nonblind_denoising=True)
         datasets = ['Set8', 'DAVIS-test']
         args.scale = 1
-        args.window_size = [6,8,8]
+        args.window_size = [6, 8, 8]
         args.nonblind_denoising = True
 
     # download model
@@ -237,51 +251,51 @@ def prepare_model_dataset(args):
 
 
 def test_video(lq, model, args):
-        '''test the video as a whole or as clips (divided temporally). '''
+    """test the video as a whole or as clips (divided temporally). """
 
-        num_frame_testing = args.tile[0]
-        if num_frame_testing:
-            # test as multiple clips if out-of-memory
-            sf = args.scale
-            num_frame_overlapping = args.tile_overlap[0]
-            not_overlap_border = False
-            b, d, c, h, w = lq.size()
-            c = c - 1 if args.nonblind_denoising else c
-            stride = num_frame_testing - num_frame_overlapping
-            d_idx_list = list(range(0, d-num_frame_testing, stride)) + [max(0, d-num_frame_testing)]
-            E = torch.zeros(b, d, c, h*sf, w*sf)
-            W = torch.zeros(b, d, 1, 1, 1)
+    num_frame_testing = args.tile[0]
+    if num_frame_testing:
+        # test as multiple clips if out-of-memory
+        sf = args.scale
+        num_frame_overlapping = args.tile_overlap[0]
+        not_overlap_border = False
+        b, d, c, h, w = lq.size()
+        c = c - 1 if args.nonblind_denoising else c
+        stride = num_frame_testing - num_frame_overlapping
+        d_idx_list = list(range(0, d - num_frame_testing, stride)) + [max(0, d - num_frame_testing)]
+        E = torch.zeros(b, d, c, h * sf, w * sf)
+        W = torch.zeros(b, d, 1, 1, 1)
 
-            for d_idx in d_idx_list:
-                lq_clip = lq[:, d_idx:d_idx+num_frame_testing, ...]
-                out_clip = test_clip(lq_clip, model, args)
-                out_clip_mask = torch.ones((b, min(num_frame_testing, d), 1, 1, 1))
+        for d_idx in d_idx_list:
+            lq_clip = lq[:, d_idx:d_idx + num_frame_testing, ...]
+            out_clip = test_clip(lq_clip, model, args)
+            out_clip_mask = torch.ones((b, min(num_frame_testing, d), 1, 1, 1))
 
-                if not_overlap_border:
-                    if d_idx < d_idx_list[-1]:
-                        out_clip[:, -num_frame_overlapping//2:, ...] *= 0
-                        out_clip_mask[:, -num_frame_overlapping//2:, ...] *= 0
-                    if d_idx > d_idx_list[0]:
-                        out_clip[:, :num_frame_overlapping//2, ...] *= 0
-                        out_clip_mask[:, :num_frame_overlapping//2, ...] *= 0
+            if not_overlap_border:
+                if d_idx < d_idx_list[-1]:
+                    out_clip[:, -num_frame_overlapping // 2:, ...] *= 0
+                    out_clip_mask[:, -num_frame_overlapping // 2:, ...] *= 0
+                if d_idx > d_idx_list[0]:
+                    out_clip[:, :num_frame_overlapping // 2, ...] *= 0
+                    out_clip_mask[:, :num_frame_overlapping // 2, ...] *= 0
 
-                E[:, d_idx:d_idx+num_frame_testing, ...].add_(out_clip)
-                W[:, d_idx:d_idx+num_frame_testing, ...].add_(out_clip_mask)
-            output = E.div_(W)
-        else:
-            # test as one clip (the whole video) if you have enough memory
-            window_size = args.window_size
-            d_old = lq.size(1)
-            d_pad = (window_size[0] - d_old % window_size[0]) % window_size[0]
-            lq = torch.cat([lq, torch.flip(lq[:, -d_pad:, ...], [1])], 1) if d_pad else lq
-            output = test_clip(lq, model, args)
-            output = output[:, :d_old, :, :, :]
+            E[:, d_idx:d_idx + num_frame_testing, ...].add_(out_clip)
+            W[:, d_idx:d_idx + num_frame_testing, ...].add_(out_clip_mask)
+        output = E.div_(W)
+    else:
+        # test as one clip (the whole video) if you have enough memory
+        window_size = args.window_size
+        d_old = lq.size(1)
+        d_pad = (window_size[0] - d_old % window_size[0]) % window_size[0]
+        lq = torch.cat([lq, torch.flip(lq[:, -d_pad:, ...], [1])], 1) if d_pad else lq
+        output = test_clip(lq, model, args)
+        output = output[:, :d_old, :, :, :]
 
-        return output
+    return output
 
 
 def test_clip(lq, model, args):
-    ''' test the clip as a whole or as patches. '''
+    """ test the clip as a whole or as patches. """
 
     sf = args.scale
     window_size = args.window_size
@@ -297,34 +311,36 @@ def test_clip(lq, model, args):
         b, d, c, h, w = lq.size()
         c = c - 1 if args.nonblind_denoising else c
         stride = size_patch_testing - overlap_size
-        h_idx_list = list(range(0, h-size_patch_testing, stride)) + [max(0, h-size_patch_testing)]
-        w_idx_list = list(range(0, w-size_patch_testing, stride)) + [max(0, w-size_patch_testing)]
-        E = torch.zeros(b, d, c, h*sf, w*sf)
+        h_idx_list = list(range(0, h - size_patch_testing, stride)) + [max(0, h - size_patch_testing)]
+        w_idx_list = list(range(0, w - size_patch_testing, stride)) + [max(0, w - size_patch_testing)]
+        E = torch.zeros(b, d, c, h * sf, w * sf)
         W = torch.zeros_like(E)
 
         for h_idx in h_idx_list:
             for w_idx in w_idx_list:
-                in_patch = lq[..., h_idx:h_idx+size_patch_testing, w_idx:w_idx+size_patch_testing]
+                in_patch = lq[..., h_idx:h_idx + size_patch_testing, w_idx:w_idx + size_patch_testing]
                 out_patch = model(in_patch).detach().cpu()
 
                 out_patch_mask = torch.ones_like(out_patch)
 
                 if not_overlap_border:
                     if h_idx < h_idx_list[-1]:
-                        out_patch[..., -overlap_size//2:, :] *= 0
-                        out_patch_mask[..., -overlap_size//2:, :] *= 0
+                        out_patch[..., -overlap_size // 2:, :] *= 0
+                        out_patch_mask[..., -overlap_size // 2:, :] *= 0
                     if w_idx < w_idx_list[-1]:
-                        out_patch[..., :, -overlap_size//2:] *= 0
-                        out_patch_mask[..., :, -overlap_size//2:] *= 0
+                        out_patch[..., :, -overlap_size // 2:] *= 0
+                        out_patch_mask[..., :, -overlap_size // 2:] *= 0
                     if h_idx > h_idx_list[0]:
-                        out_patch[..., :overlap_size//2, :] *= 0
-                        out_patch_mask[..., :overlap_size//2, :] *= 0
+                        out_patch[..., :overlap_size // 2, :] *= 0
+                        out_patch_mask[..., :overlap_size // 2, :] *= 0
                     if w_idx > w_idx_list[0]:
-                        out_patch[..., :, :overlap_size//2] *= 0
-                        out_patch_mask[..., :, :overlap_size//2] *= 0
+                        out_patch[..., :, :overlap_size // 2] *= 0
+                        out_patch_mask[..., :, :overlap_size // 2] *= 0
 
-                E[..., h_idx*sf:(h_idx+size_patch_testing)*sf, w_idx*sf:(w_idx+size_patch_testing)*sf].add_(out_patch)
-                W[..., h_idx*sf:(h_idx+size_patch_testing)*sf, w_idx*sf:(w_idx+size_patch_testing)*sf].add_(out_patch_mask)
+                E[..., h_idx * sf:(h_idx + size_patch_testing) * sf, w_idx * sf:(w_idx + size_patch_testing) * sf].add_(
+                    out_patch)
+                W[..., h_idx * sf:(h_idx + size_patch_testing) * sf, w_idx * sf:(w_idx + size_patch_testing) * sf].add_(
+                    out_patch_mask)
         output = E.div_(W)
 
     else:
@@ -337,7 +353,7 @@ def test_clip(lq, model, args):
 
         output = model(lq).detach().cpu()
 
-        output = output[:, :, :, :h_old*sf, :w_old*sf]
+        output = output[:, :, :, :h_old * sf, :w_old * sf]
 
     return output
 

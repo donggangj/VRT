@@ -64,7 +64,9 @@ class ModulatedDeformConv(nn.Module):
             self.bias.data.zero_()
 
     # def forward(self, x, offset, mask):
-    #     return modulated_deform_conv(x, offset, mask, self.weight, self.bias, self.stride, self.padding, self.dilation,
+    #     return modulated_deform_conv(x, offset, mask,
+    #                                  self.weight, self.bias,
+    #                                  self.stride, self.padding, self.dilation,
     #                                  self.groups, self.deformable_groups)
 
 
@@ -110,7 +112,9 @@ class ModulatedDeformConvPack(ModulatedDeformConv):
     #     o1, o2, mask = torch.chunk(out, 3, dim=1)
     #     offset = torch.cat((o1, o2), dim=1)
     #     mask = torch.sigmoid(mask)
-    #     return modulated_deform_conv(x, offset, mask, self.weight, self.bias, self.stride, self.padding, self.dilation,
+    #     return modulated_deform_conv(x, offset, mask,
+    #                                  self.weight, self.bias,
+    #                                  self.stride, self.padding, self.dilation,
     #                                  self.groups, self.deformable_groups)
 
 
@@ -185,7 +189,7 @@ def drop_path(x, drop_prob: float = 0., training: bool = False):
     if drop_prob == 0. or not training:
         return x
     keep_prob = 1 - drop_prob
-    shape = (x.shape[0], ) + (1, ) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
+    shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
     random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
     random_tensor.floor_()  # binarize
     output = x.div(keep_prob) * random_tensor
@@ -227,8 +231,10 @@ def flow_warp(x, flow, interp_mode='bilinear', padding_mode='zeros', align_corne
     # assert x.size()[-2:] == flow.size()[1:3] # temporaily turned off for image-wise shift
     n, _, h, w = x.size()
     # create mesh grid
-    # grid_y, grid_x = torch.meshgrid(torch.arange(0, h).type_as(x), torch.arange(0, w).type_as(x)) # an illegal memory access on TITAN RTX + PyTorch1.9.1
-    grid_y, grid_x = torch.meshgrid(torch.arange(0, h, dtype=x.dtype, device=x.device), torch.arange(0, w, dtype=x.dtype, device=x.device))
+    # an illegal memory access on TITAN RTX + PyTorch1.9.1
+    # grid_y, grid_x = torch.meshgrid(torch.arange(0, h).type_as(x), torch.arange(0, w).type_as(x))
+    grid_y, grid_x = torch.meshgrid(torch.arange(0, h, dtype=x.dtype, device=x.device),
+                                    torch.arange(0, w, dtype=x.dtype, device=x.device))
     grid = torch.stack((grid_x, grid_y), 2).float()  # W(x), H(y), 2
     grid.requires_grad = False
 
@@ -238,16 +244,20 @@ def flow_warp(x, flow, interp_mode='bilinear', padding_mode='zeros', align_corne
     #     x = F.pad(x, (0,0,0,0,0,1), mode='constant', value=1)
 
     # scale grid to [-1,1]
-    if interp_mode == 'nearest4': # todo: bug, no gradient for flow model in this case!!! but the result is good
+    if interp_mode == 'nearest4':  # todo: bug, no gradient for flow model in this case!!! but the result is good
         vgrid_x_floor = 2.0 * torch.floor(vgrid[:, :, :, 0]) / max(w - 1, 1) - 1.0
         vgrid_x_ceil = 2.0 * torch.ceil(vgrid[:, :, :, 0]) / max(w - 1, 1) - 1.0
         vgrid_y_floor = 2.0 * torch.floor(vgrid[:, :, :, 1]) / max(h - 1, 1) - 1.0
         vgrid_y_ceil = 2.0 * torch.ceil(vgrid[:, :, :, 1]) / max(h - 1, 1) - 1.0
 
-        output00 = F.grid_sample(x, torch.stack((vgrid_x_floor, vgrid_y_floor), dim=3), mode='nearest', padding_mode=padding_mode, align_corners=align_corners)
-        output01 = F.grid_sample(x, torch.stack((vgrid_x_floor, vgrid_y_ceil), dim=3), mode='nearest', padding_mode=padding_mode, align_corners=align_corners)
-        output10 = F.grid_sample(x, torch.stack((vgrid_x_ceil, vgrid_y_floor), dim=3), mode='nearest', padding_mode=padding_mode, align_corners=align_corners)
-        output11 = F.grid_sample(x, torch.stack((vgrid_x_ceil, vgrid_y_ceil), dim=3), mode='nearest', padding_mode=padding_mode, align_corners=align_corners)
+        output00 = F.grid_sample(x, torch.stack((vgrid_x_floor, vgrid_y_floor), dim=3), mode='nearest',
+                                 padding_mode=padding_mode, align_corners=align_corners)
+        output01 = F.grid_sample(x, torch.stack((vgrid_x_floor, vgrid_y_ceil), dim=3), mode='nearest',
+                                 padding_mode=padding_mode, align_corners=align_corners)
+        output10 = F.grid_sample(x, torch.stack((vgrid_x_ceil, vgrid_y_floor), dim=3), mode='nearest',
+                                 padding_mode=padding_mode, align_corners=align_corners)
+        output11 = F.grid_sample(x, torch.stack((vgrid_x_ceil, vgrid_y_ceil), dim=3), mode='nearest',
+                                 padding_mode=padding_mode, align_corners=align_corners)
 
         return torch.cat([output00, output01, output10, output11], 1)
 
@@ -255,7 +265,8 @@ def flow_warp(x, flow, interp_mode='bilinear', padding_mode='zeros', align_corne
         vgrid_x = 2.0 * vgrid[:, :, :, 0] / max(w - 1, 1) - 1.0
         vgrid_y = 2.0 * vgrid[:, :, :, 1] / max(h - 1, 1) - 1.0
         vgrid_scaled = torch.stack((vgrid_x, vgrid_y), dim=3)
-        output = F.grid_sample(x, vgrid_scaled, mode=interp_mode, padding_mode=padding_mode, align_corners=align_corners)
+        output = F.grid_sample(x, vgrid_scaled, mode=interp_mode, padding_mode=padding_mode,
+                               align_corners=align_corners)
 
         # if use_pad_mask: # for PWCNet
         #     output = _flow_warp_masking(output)
@@ -293,7 +304,7 @@ class DCNv2PackFlowGuided(ModulatedDeformConvPack):
         super(DCNv2PackFlowGuided, self).__init__(*args, **kwargs)
 
         self.conv_offset = nn.Sequential(
-            nn.Conv2d((1+self.pa_frames//2) * self.in_channels + self.pa_frames, self.out_channels, 3, 1, 1),
+            nn.Conv2d((1 + self.pa_frames // 2) * self.in_channels + self.pa_frames, self.out_channels, 3, 1, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
             nn.Conv2d(self.out_channels, self.out_channels, 3, 1, 1),
             nn.LeakyReLU(negative_slope=0.1, inplace=True),
@@ -317,7 +328,7 @@ class DCNv2PackFlowGuided(ModulatedDeformConvPack):
         # offset
         offset = self.max_residue_magnitude * torch.tanh(torch.cat((o1, o2), dim=1))
         if self.pa_frames == 2:
-            offset = offset + flows[0].flip(1).repeat(1, offset.size(1)//2, 1, 1)
+            offset = offset + flows[0].flip(1).repeat(1, offset.size(1) // 2, 1, 1)
         elif self.pa_frames == 4:
             offset1, offset2 = torch.chunk(offset, 2, dim=1)
             offset1 = offset1 + flows[0].flip(1).repeat(1, offset1.size(1) // 2, 1, 1)
@@ -335,7 +346,7 @@ class DCNv2PackFlowGuided(ModulatedDeformConvPack):
         mask = torch.sigmoid(mask)
 
         return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, self.stride, self.padding,
-                                         self.dilation, mask)
+                                             self.dilation, mask)
 
 
 class BasicModule(nn.Module):
@@ -417,10 +428,11 @@ class SpyNet(nn.Module):
             ], 1)) + upsampled_flow
 
             if level in self.return_levels:
-                scale = 2**(5-level) # level=5 (scale=1), level=4 (scale=2), level=3 (scale=4), level=2 (scale=8)
-                flow_out = F.interpolate(input=flow, size=(h//scale, w//scale), mode='bilinear', align_corners=False)
-                flow_out[:, 0, :, :] *= float(w//scale) / float(w_floor//scale)
-                flow_out[:, 1, :, :] *= float(h//scale) / float(h_floor//scale)
+                scale = 2 ** (5 - level)  # level=5 (scale=1), level=4 (scale=2), level=3 (scale=4), level=2 (scale=8)
+                flow_out = F.interpolate(input=flow, size=(h // scale, w // scale), mode='bilinear',
+                                         align_corners=False)
+                flow_out[:, 0, :, :] *= float(w // scale) / float(w_floor // scale)
+                flow_out[:, 1, :, :] *= float(h // scale) / float(h_floor // scale)
                 flow_list.insert(0, flow_out)
 
         return flow_list
@@ -676,7 +688,7 @@ class WindowAttention(nn.Module):
         return x
 
     def get_position_index(self, window_size):
-        ''' Get pair-wise relative position index for each token inside the window. '''
+        """ Get pair-wise relative position index for each token inside the window. """
 
         coords_d = torch.arange(window_size[0])
         coords_h = torch.arange(window_size[1])
@@ -1097,13 +1109,14 @@ class Stage(nn.Module):
         x = self.linear2(self.residual_group2(x).transpose(1, 4)).transpose(1, 4) + x
         x = x.transpose(1, 2)
 
-        x_backward, x_forward = getattr(self, f'get_aligned_feature_{self.pa_frames}frames')(x, flows_backward, flows_forward)
+        x_backward, x_forward = getattr(self, f'get_aligned_feature_{self.pa_frames}frames')(x, flows_backward,
+                                                                                             flows_forward)
         x = self.pa_fuse(torch.cat([x, x_backward, x_forward], 2).permute(0, 1, 3, 4, 2)).permute(0, 4, 1, 2, 3)
 
         return x
 
     def get_aligned_feature_2frames(self, x, flows_backward, flows_forward):
-        '''Parallel feature warping for 2 frames.'''
+        """Parallel feature warping for 2 frames."""
 
         # backward
         n = x.size(1)
@@ -1125,7 +1138,7 @@ class Stage(nn.Module):
         return [torch.stack(x_backward, 1), torch.stack(x_forward, 1)]
 
     def get_aligned_feature_4frames(self, x, flows_backward, flows_forward):
-        '''Parallel feature warping for 4 frames.'''
+        """Parallel feature warping for 4 frames."""
 
         # backward
         n = x.size(1)
@@ -1143,7 +1156,8 @@ class Stage(nn.Module):
             x_i_warped = flow_warp(x_i, flow1.permute(0, 2, 3, 1), 'bilinear')  # frame i+1 aligned towards i
             x_ii_warped = flow_warp(x_ii, flow2.permute(0, 2, 3, 1), 'bilinear')  # frame i+2 aligned towards i
             x_backward.insert(0,
-                self.pa_deform(torch.cat([x_i, x_ii], 1), [x_i_warped, x_ii_warped], x[:, i - 2, ...], [flow1, flow2]))
+                              self.pa_deform(torch.cat([x_i, x_ii], 1), [x_i_warped, x_ii_warped], x[:, i - 2, ...],
+                                             [flow1, flow2]))
 
         # forward
         x_forward = [torch.zeros_like(x[:, 0, ...])]
@@ -1165,7 +1179,7 @@ class Stage(nn.Module):
         return [torch.stack(x_backward, 1), torch.stack(x_forward, 1)]
 
     def get_aligned_feature_6frames(self, x, flows_backward, flows_forward):
-        '''Parallel feature warping for 6 frames.'''
+        """Parallel feature warping for 6 frames."""
 
         # backward
         n = x.size(1)
@@ -1290,7 +1304,7 @@ class VRT(nn.Module):
         self.nonblind_denoising = nonblind_denoising
 
         # conv_first
-        self.conv_first = nn.Conv3d(in_chans*(1+2*4)+1 if self.nonblind_denoising else in_chans*(1+2*4),
+        self.conv_first = nn.Conv3d(in_chans * (1 + 2 * 4) + 1 if self.nonblind_denoising else in_chans * (1 + 2 * 4),
                                     embed_dims[0], kernel_size=(1, 3, 3), padding=(0, 1, 1))
 
         # main body
@@ -1325,7 +1339,7 @@ class VRT(nn.Module):
                         max_residue_magnitude=10 / scales[i],
                         use_checkpoint_attn=use_checkpoint_attns[i],
                         use_checkpoint_ffn=use_checkpoint_ffns[i],
-                        )
+                    )
                     )
 
         # stage 8
@@ -1382,7 +1396,7 @@ class VRT(nn.Module):
         flows_backward, flows_forward = self.get_flows(x)
 
         # warp input
-        x_backward, x_forward = self.get_aligned_image_2frames(x,  flows_backward[0], flows_forward[0])
+        x_backward, x_forward = self.get_aligned_image_2frames(x, flows_backward[0], flows_forward[0])
         x = torch.cat([x, x_backward, x_forward], 2)
 
         # concatenate noise level map
@@ -1407,26 +1421,31 @@ class VRT(nn.Module):
             return x + torch.nn.functional.interpolate(x_lq, size=(C, H, W), mode='trilinear', align_corners=False)
 
     def get_flows(self, x):
-        ''' Get flows for 2 frames, 4 frames or 6 frames.'''
+        """ Get flows for 2 frames, 4 frames or 6 frames."""
 
         if self.pa_frames == 2:
             flows_backward, flows_forward = self.get_flow_2frames(x)
         elif self.pa_frames == 4:
             flows_backward_2frames, flows_forward_2frames = self.get_flow_2frames(x)
-            flows_backward_4frames, flows_forward_4frames = self.get_flow_4frames(flows_forward_2frames, flows_backward_2frames)
+            flows_backward_4frames, flows_forward_4frames = self.get_flow_4frames(flows_forward_2frames,
+                                                                                  flows_backward_2frames)
             flows_backward = flows_backward_2frames + flows_backward_4frames
             flows_forward = flows_forward_2frames + flows_forward_4frames
         elif self.pa_frames == 6:
             flows_backward_2frames, flows_forward_2frames = self.get_flow_2frames(x)
-            flows_backward_4frames, flows_forward_4frames = self.get_flow_4frames(flows_forward_2frames, flows_backward_2frames)
-            flows_backward_6frames, flows_forward_6frames = self.get_flow_6frames(flows_forward_2frames, flows_backward_2frames, flows_forward_4frames, flows_backward_4frames)
+            flows_backward_4frames, flows_forward_4frames = self.get_flow_4frames(flows_forward_2frames,
+                                                                                  flows_backward_2frames)
+            flows_backward_6frames, flows_forward_6frames = self.get_flow_6frames(flows_forward_2frames,
+                                                                                  flows_backward_2frames,
+                                                                                  flows_forward_4frames,
+                                                                                  flows_backward_4frames)
             flows_backward = flows_backward_2frames + flows_backward_4frames + flows_backward_6frames
             flows_forward = flows_forward_2frames + flows_forward_4frames + flows_forward_6frames
 
         return flows_backward, flows_forward
 
     def get_flow_2frames(self, x):
-        '''Get flow between frames t and t+1 from x.'''
+        """Get flow between frames t and t+1 from x."""
 
         b, n, c, h, w = x.size()
         x_1 = x[:, :-1, :, :, :].reshape(-1, c, h, w)
@@ -1434,18 +1453,18 @@ class VRT(nn.Module):
 
         # backward
         flows_backward = self.spynet(x_1, x_2)
-        flows_backward = [flow.view(b, n-1, 2, h // (2 ** i), w // (2 ** i)) for flow, i in
+        flows_backward = [flow.view(b, n - 1, 2, h // (2 ** i), w // (2 ** i)) for flow, i in
                           zip(flows_backward, range(4))]
 
         # forward
         flows_forward = self.spynet(x_2, x_1)
-        flows_forward = [flow.view(b, n-1, 2, h // (2 ** i), w // (2 ** i)) for flow, i in
+        flows_forward = [flow.view(b, n - 1, 2, h // (2 ** i), w // (2 ** i)) for flow, i in
                          zip(flows_forward, range(4))]
 
         return flows_backward, flows_forward
 
     def get_flow_4frames(self, flows_forward, flows_backward):
-        '''Get flow between t and t+2 from (t,t+1) and (t+1,t+2).'''
+        """Get flow between t and t+2 from (t,t+1) and (t+1,t+2)."""
 
         # backward
         d = flows_forward[0].shape[1]
@@ -1471,7 +1490,7 @@ class VRT(nn.Module):
         return flows_backward2, flows_forward2
 
     def get_flow_6frames(self, flows_forward, flows_backward, flows_forward2, flows_backward2):
-        '''Get flow between t and t+3 from (t,t+2) and (t+2,t+3).'''
+        """Get flow between t and t+3 from (t,t+2) and (t+2,t+3)."""
 
         # backward
         d = flows_forward2[0].shape[1]
@@ -1497,7 +1516,7 @@ class VRT(nn.Module):
         return flows_backward3, flows_forward3
 
     def get_aligned_image_2frames(self, x, flows_backward, flows_forward):
-        '''Parallel feature warping for 2 frames.'''
+        """Parallel feature warping for 2 frames."""
 
         # backward
         n = x.size(1)
@@ -1505,19 +1524,19 @@ class VRT(nn.Module):
         for i in range(n - 1, 0, -1):
             x_i = x[:, i, ...]
             flow = flows_backward[:, i - 1, ...]
-            x_backward.insert(0, flow_warp(x_i, flow.permute(0, 2, 3, 1), 'nearest4')) # frame i+1 aligned towards i
+            x_backward.insert(0, flow_warp(x_i, flow.permute(0, 2, 3, 1), 'nearest4'))  # frame i+1 aligned towards i
 
         # forward
         x_forward = [torch.zeros_like(x[:, 0, ...]).repeat(1, 4, 1, 1)]
         for i in range(0, n - 1):
             x_i = x[:, i, ...]
             flow = flows_forward[:, i, ...]
-            x_forward.append(flow_warp(x_i, flow.permute(0, 2, 3, 1), 'nearest4')) # frame i-1 aligned towards i
+            x_forward.append(flow_warp(x_i, flow.permute(0, 2, 3, 1), 'nearest4'))  # frame i-1 aligned towards i
 
         return [torch.stack(x_backward, 1), torch.stack(x_forward, 1)]
 
     def forward_features(self, x, flows_backward, flows_forward):
-        '''Main network for feature extraction.'''
+        """Main network for feature extraction."""
 
         x1 = self.stage1(x, flows_backward[0::4], flows_forward[0::4])
         x2 = self.stage2(x1, flows_backward[1::4], flows_forward[1::4])

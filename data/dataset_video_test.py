@@ -96,13 +96,13 @@ class VideoRecurrentTestDataset(data.Dataset):
 
         # Find unique folder strings
         self.folders = sorted(list(set(self.data_info['folder'])))
-        self.sigma = opt['sigma'] / 255. if 'sigma' in opt else 0 # for non-blind video denoising
+        self.sigma = opt['sigma'] / 255. if 'sigma' in opt else 0  # for non-blind video denoising
 
     def __getitem__(self, index):
         folder = self.folders[index]
 
         if self.sigma:
-        # for non-blind video denoising
+            # for non-blind video denoising
             if self.cache_data:
                 imgs_gt = self.imgs_gt[folder]
             else:
@@ -115,7 +115,7 @@ class VideoRecurrentTestDataset(data.Dataset):
             t, _, h, w = imgs_lq.shape
             imgs_lq = torch.cat([imgs_lq, noise_level.expand(t, 1, h, w)], 1)
         else:
-        # for video sr and deblurring
+            # for video sr and deblurring
             if self.cache_data:
                 imgs_lq = self.imgs_lq[folder]
                 imgs_gt = self.imgs_gt[folder]
@@ -278,7 +278,7 @@ class VideoTestVimeo90KDataset(data.Dataset):
         img_gt.squeeze_(0)
 
         if self.pad_sequence:  # pad the sequence: 7 frames to 8 frames
-            imgs_lq = torch.cat([imgs_lq, imgs_lq[-1:,...]], dim=0)
+            imgs_lq = torch.cat([imgs_lq, imgs_lq[-1:, ...]], dim=0)
 
         return {
             'L': imgs_lq,  # (t, c, h, w)
@@ -291,8 +291,8 @@ class VideoTestVimeo90KDataset(data.Dataset):
 
     def __len__(self):
         return len(self.data_info['gt_path'])
-    
-    
+
+
 class SingleVideoRecurrentTestDataset(data.Dataset):
     """Single Video test dataset (only input LQ path).
 
@@ -386,4 +386,3 @@ class SingleVideoRecurrentTestDataset(data.Dataset):
 
     def __len__(self):
         return len(self.folders)
-
