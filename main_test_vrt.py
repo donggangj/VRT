@@ -32,6 +32,10 @@ def main():
                         help='Tile size, [0,0,0] for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, nargs='+', default=[2, 20, 20],
                         help='Overlapping of different tiles')
+    parser.add_argument('--to_onnx', action="store_true",
+                        help='if true, export to onnx')
+    parser.add_argument('--onnx_path', type=str, default='vrt.onnx',
+                        help='onnx path to export')
     args = parser.parse_args()
 
     # define model
@@ -320,6 +324,23 @@ def test_clip(lq, model, args):
             for w_idx in w_idx_list:
                 in_patch = lq[..., h_idx:h_idx + size_patch_testing, w_idx:w_idx + size_patch_testing]
                 out_patch = model(in_patch).detach().cpu()
+                if args.to_onnx and not os.path.exists(args.onnx_path):
+                    from torch.onnx import export as ex_to_onnx
+                    onnx_path = args.onnx_path
+                    onnx_dir = os.path.dirname(onnx_path)
+                    if onnx_dir and not os.path.exists(onnx_dir):
+                        os.makedirs(onnx_dir)
+                    low_res_patch = in_patch
+                    ex_to_onnx(model,
+                               low_res_patch,
+                               onnx_path,
+                               export_params=True,
+                               opset_version=14,
+                               do_constant_folding=True,
+                               input_names=['low_res_patch'],
+                               output_names=['high_res_patch'],
+                               dynamic_axes={'low_res_patch': {0: 'batch_size'},
+                                             'high_res_patch': {0: 'batch_size'}})
 
                 out_patch_mask = torch.ones_like(out_patch)
 
