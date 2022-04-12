@@ -547,19 +547,33 @@ class Upsample(nn.Sequential):
             def forward(self, x):
                 return x.transpose(1, 2)
 
+        class PixelShuffleCompat(nn.Module):
+            def __init__(self, upscale_factor):
+                super().__init__()
+                self.shuffle = nn.PixelShuffle(upscale_factor)
+
+            def forward(self, x):
+                shape = x.shape
+                b = shape[:-3]
+                x = x.view((-1, *shape[-3:]))
+                x = self.shuffle(x)
+                shape = x.shape
+                x = x.view((*b, *shape[-3:]))
+                return x
+
         m = []
         if (scale & (scale - 1)) == 0:  # scale = 2^n
             for _ in range(int(math.log(scale, 2))):
                 m.append(nn.Conv3d(num_feat, 4 * num_feat, kernel_size=(1, 3, 3), padding=(0, 1, 1)))
                 m.append(Transpose_Dim12())
-                m.append(nn.PixelShuffle(2))
+                m.append(PixelShuffleCompat(2))
                 m.append(Transpose_Dim12())
                 m.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
             m.append(nn.Conv3d(num_feat, num_feat, kernel_size=(1, 3, 3), padding=(0, 1, 1)))
         elif scale == 3:
             m.append(nn.Conv3d(num_feat, 9 * num_feat, kernel_size=(1, 3, 3), padding=(0, 1, 1)))
             m.append(Transpose_Dim12())
-            m.append(nn.PixelShuffle(3))
+            m.append(PixelShuffleCompat(3))
             m.append(Transpose_Dim12())
             m.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
             m.append(nn.Conv3d(num_feat, num_feat, kernel_size=(1, 3, 3), padding=(0, 1, 1)))
@@ -850,16 +864,19 @@ class TMSA(nn.Module):
         """
 
         # attention
-        if self.use_checkpoint_attn:
-            x = x + checkpoint.checkpoint(self.forward_part1, x, mask_matrix)
-        else:
-            x = x + self.forward_part1(x, mask_matrix)
+        # if self.use_checkpoint_attn:
+        #     x = x + checkpoint.checkpoint(self.forward_part1, x, mask_matrix)
+        # else:
+        #     x = x + self.forward_part1(x, mask_matrix)
 
         # feed-forward
-        if self.use_checkpoint_ffn:
-            x = x + checkpoint.checkpoint(self.forward_part2, x)
-        else:
-            x = x + self.forward_part2(x)
+        # if self.use_checkpoint_ffn:
+        #     x = x + checkpoint.checkpoint(self.forward_part2, x)
+        # else:
+        #     x = x + self.forward_part2(x)
+
+        x = x + self.forward_part1(x, mask_matrix)
+        x = x + self.forward_part2(x)
 
         return x
 
