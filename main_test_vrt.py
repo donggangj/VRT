@@ -335,6 +335,7 @@ def test_clip(lq, model, args):
                                low_res_patch,
                                onnx_path,
                                export_params=True,
+                               verbose=True,
                                opset_version=14,
                                do_constant_folding=True,
                                input_names=['low_res_patch'],

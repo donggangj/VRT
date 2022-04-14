@@ -513,9 +513,43 @@ def compute_mask(D, H, W, window_size, shift_size, device):
 
     img_mask = torch.zeros((1, D, H, W, 1), device=device)  # 1 Dp Hp Wp 1
     cnt = 0
-    for d in slice(-window_size[0]), slice(-window_size[0], -shift_size[0]), slice(-shift_size[0], None):
-        for h in slice(-window_size[1]), slice(-window_size[1], -shift_size[1]), slice(-shift_size[1], None):
-            for w in slice(-window_size[2]), slice(-window_size[2], -shift_size[2]), slice(-shift_size[2], None):
+    slices = [[] for _ in range(3)]
+    for _i, (_slice, _len) in enumerate(zip(slices, (D, H, W))):
+        # if window_size[_i] < _len:
+        #     _slice.append(slice(-window_size[_i]))
+        # if window_size[_i] > shift_size[_i]:
+        #     _slice.append(slice(-window_size[_i], -shift_size[_i]))
+        # if shift_size[_i] < window_size[_i]:
+        #     _slice.append(slice(-shift_size[_i]))
+        _slice.append(slice(-window_size[_i]))
+        _slice.append(slice(-window_size[_i], -shift_size[_i]))
+        _slice.append(slice(-shift_size[_i]))
+    for d in slices[0]:
+        for h in slices[1]:
+            for w in slices[2]:
+                img_mask[:, d, h, w, :] = cnt
+                cnt += 1
+    mask_windows = window_partition(img_mask, window_size)  # nW, ws[0]*ws[1]*ws[2], 1
+    mask_windows = mask_windows.squeeze(-1)  # nW, ws[0]*ws[1]*ws[2]
+    attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+
+    return attn_mask
+
+
+@lru_cache()
+def compute_mask_no_t(D, H, W, window_size, shift_size, device):
+    """ Compute attnetion mask for input of size (D, H, W). @lru_cache caches each stage results. """
+
+    img_mask = torch.zeros((1, D, H, W, 1), device=device)  # 1 Dp Hp Wp 1
+    cnt = 9
+    slices = [[] for _ in range(3)]
+    for _i, _slice in enumerate(slices):
+        _slice.append(slice(-window_size[_i], -shift_size[_i]))
+        _slice.append(slice(-shift_size[_i]))
+    for d in slices[0]:
+        for h in slices[1]:
+            for w in slices[2]:
                 img_mask[:, d, h, w, :] = cnt
                 cnt += 1
     mask_windows = window_partition(img_mask, window_size)  # nW, ws[0]*ws[1]*ws[2], 1
@@ -881,6 +915,9 @@ class TMSA(nn.Module):
         return x
 
 
+# _mask_args = []
+
+
 class TMSAG(nn.Module):
     """ Temporal Mutual Self Attention Group (TMSAG).
 
@@ -954,7 +991,14 @@ class TMSAG(nn.Module):
         Dp = int(np.ceil(D / window_size[0])) * window_size[0]
         Hp = int(np.ceil(H / window_size[1])) * window_size[1]
         Wp = int(np.ceil(W / window_size[2])) * window_size[2]
-        attn_mask = compute_mask(Dp, Hp, Wp, window_size, shift_size, x.device)
+        mask_arg = (Dp, Hp, Wp, window_size, shift_size)
+        # if mask_arg not in _mask_args:
+        #     _mask_args.append(mask_arg)
+        #     print(mask_arg)
+        if Dp > window_size[0]:
+            attn_mask = compute_mask(*mask_arg, x.device)
+        else:
+            attn_mask = compute_mask_no_t(*mask_arg, x.device)
 
         for blk in self.blocks:
             x = blk(x, attn_mask)
