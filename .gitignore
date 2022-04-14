@@ -3,3 +3,5 @@ __pycache__
 results
 testsets
 model_zoo
+*.log
+
