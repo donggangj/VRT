@@ -542,16 +542,16 @@ def compute_mask_no_t(D, H, W, window_size, shift_size, device):
     """ Compute attnetion mask for input of size (D, H, W). @lru_cache caches each stage results. """
 
     img_mask = torch.zeros((1, D, H, W, 1), device=device)  # 1 Dp Hp Wp 1
-    cnt = 9
-    slices = [[] for _ in range(3)]
-    for _i, _slice in enumerate(slices):
-        _slice.append(slice(-window_size[_i], -shift_size[_i]))
-        _slice.append(slice(-shift_size[_i]))
-    for d in slices[0]:
-        for h in slices[1]:
-            for w in slices[2]:
-                img_mask[:, d, h, w, :] = cnt
-                cnt += 1
+    # cnt = 9
+    # slices = [[] for _ in range(3)]
+    # for _i, _slice in enumerate(slices):
+    #     _slice.append(slice(-window_size[_i], -shift_size[_i]))
+    #     _slice.append(slice(-shift_size[_i]))
+    # for d in slices[0]:
+    #     for h in slices[1]:
+    #         for w in slices[2]:
+    #             img_mask[:, d, h, w, :] = cnt
+    #             cnt += 1
     mask_windows = window_partition(img_mask, window_size)  # nW, ws[0]*ws[1]*ws[2], 1
     mask_windows = mask_windows.squeeze(-1)  # nW, ws[0]*ws[1]*ws[2]
     attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
