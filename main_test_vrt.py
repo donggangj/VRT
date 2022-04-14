@@ -36,6 +36,8 @@ def main():
                         help='if true, export to onnx')
     parser.add_argument('--onnx_path', type=str, default='vrt.onnx',
                         help='onnx path to export')
+    parser.add_argument('--verbose', action="store_true",
+                        help='if true, export verbose info to onnx')
     args = parser.parse_args()
 
     # define model
@@ -335,7 +337,7 @@ def test_clip(lq, model, args):
                                low_res_patch,
                                onnx_path,
                                export_params=True,
-                               verbose=True,
+                               verbose=args.verbose,
                                opset_version=14,
                                do_constant_folding=True,
                                input_names=['low_res_patch'],
