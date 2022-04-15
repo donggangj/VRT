@@ -995,10 +995,30 @@ class TMSAG(nn.Module):
         # if mask_arg not in _mask_args:
         #     _mask_args.append(mask_arg)
         #     print(mask_arg)
-        if Dp > window_size[0]:
-            attn_mask = compute_mask(*mask_arg, x.device)
-        else:
-            attn_mask = compute_mask_no_t(*mask_arg, x.device)
+        attn_mask = compute_mask(*mask_arg, x.device)
+
+        for blk in self.blocks:
+            x = blk(x, attn_mask)
+
+        x = x.view(B, D, H, W, -1)
+        x = rearrange(x, 'b d h w c -> b c d h w')
+
+        return x
+
+
+class TMSAG2(TMSAG):
+    """ TMSAG for temporal window size 2 ([2, *, *])
+    """
+
+    def forward(self, x):
+        B, C, D, H, W = x.shape
+        window_size, shift_size = get_window_size((D, H, W), self.window_size, self.shift_size)
+        x = rearrange(x, 'b c d h w -> b d h w c')
+        Dp = int(np.ceil(D / window_size[0])) * window_size[0]
+        Hp = int(np.ceil(H / window_size[1])) * window_size[1]
+        Wp = int(np.ceil(W / window_size[2])) * window_size[2]
+        mask_arg = (Dp, Hp, Wp, window_size, shift_size)
+        attn_mask = compute_mask_no_t(*mask_arg, x.device)
 
         for blk in self.blocks:
             x = blk(x, attn_mask)
@@ -1127,20 +1147,20 @@ class Stage(nn.Module):
                                          Rearrange('n d h w c -> n c d h w'))
 
         # mutual and self attention
-        self.residual_group1 = TMSAG(dim=dim,
-                                     input_resolution=input_resolution,
-                                     depth=int(depth * mul_attn_ratio),
-                                     num_heads=num_heads,
-                                     window_size=(2, window_size[1], window_size[2]),
-                                     mut_attn=True,
-                                     mlp_ratio=mlp_ratio,
-                                     qkv_bias=qkv_bias,
-                                     qk_scale=qk_scale,
-                                     drop_path=drop_path,
-                                     norm_layer=norm_layer,
-                                     use_checkpoint_attn=use_checkpoint_attn,
-                                     use_checkpoint_ffn=use_checkpoint_ffn
-                                     )
+        self.residual_group1 = TMSAG2(dim=dim,
+                                      input_resolution=input_resolution,
+                                      depth=int(depth * mul_attn_ratio),
+                                      num_heads=num_heads,
+                                      window_size=(2, window_size[1], window_size[2]),
+                                      mut_attn=True,
+                                      mlp_ratio=mlp_ratio,
+                                      qkv_bias=qkv_bias,
+                                      qk_scale=qk_scale,
+                                      drop_path=drop_path,
+                                      norm_layer=norm_layer,
+                                      use_checkpoint_attn=use_checkpoint_attn,
+                                      use_checkpoint_ffn=use_checkpoint_ffn
+                                      )
         self.linear1 = nn.Linear(dim, dim)
 
         # only self attention
