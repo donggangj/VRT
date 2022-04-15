@@ -1006,9 +1006,48 @@ class TMSAG(nn.Module):
         return x
 
 
-class TMSAG2(TMSAG):
+class TMSAG2(nn.Module):
     """ TMSAG for temporal window size 2 ([2, *, *])
     """
+    def __init__(self,
+                 dim,
+                 input_resolution,
+                 depth,
+                 num_heads,
+                 window_size=(2, 8, 8),
+                 shift_size=None,
+                 mut_attn=True,
+                 mlp_ratio=2.,
+                 qkv_bias=False,
+                 qk_scale=None,
+                 drop_path=0.,
+                 norm_layer=nn.LayerNorm,
+                 use_checkpoint_attn=False,
+                 use_checkpoint_ffn=False
+                 ):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.window_size = window_size
+        self.shift_size = list(i // 2 for i in window_size) if shift_size is None else shift_size
+
+        # build blocks
+        self.blocks = nn.ModuleList([
+            TMSA(
+                dim=dim,
+                input_resolution=input_resolution,
+                num_heads=num_heads,
+                window_size=window_size,
+                shift_size=[0, 0, 0] if i % 2 == 0 else self.shift_size,
+                mut_attn=mut_attn,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+                norm_layer=norm_layer,
+                use_checkpoint_attn=use_checkpoint_attn,
+                use_checkpoint_ffn=use_checkpoint_ffn
+            )
+            for i in range(depth)])
 
     def forward(self, x):
         B, C, D, H, W = x.shape
