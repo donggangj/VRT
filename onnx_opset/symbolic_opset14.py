@@ -99,21 +99,3 @@ def deform_conv2d(g,
                   use_mask):
     return g.op("DeformableConvolution", input, offset, weight, bias,
                 dilations_i=(dil_h, dil_w), strides_i=(stride_h, stride_w))
-
-
-def chunk(g, self, chunks, dim):
-    """
-    Fix non-int chunk_size of opset11
-    """
-    from torch.onnx.symbolic_opset9 import floor, expand
-    from torch.onnx.symbolic_opset11 import split
-    # Calculate chunk size for dynamic chunk
-    dim_size = g.op("Gather", g.op("Shape", self), dim, axis_i=0)
-    chunk_size_s = g.op("Sub", chunks, g.op("Constant", value_t=torch.tensor([1], dtype=torch.long)))
-    chunk_size = g.op("Div", g.op("Add", dim_size, chunk_size_s), chunks)
-    chunk_size = floor(g, chunk_size)
-    # Create splits vector
-    chunk_vec = [expand(g, chunk_size, chunk_size_s, None),
-                 g.op("Sub", dim_size, g.op("Mul", chunk_size, chunk_size_s))]
-    chunk_vec = g.op("Concat", *chunk_vec, axis_i=0)
-    return split(g, self, chunk_vec, dim)

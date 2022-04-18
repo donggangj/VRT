@@ -373,6 +373,23 @@ def _sort_helper(g, input, dim, decending=True, out=None):
         return g.op("TopK", input, dim_size_, axis_i=dim, largest_i=decending, outputs=2)
 
 
+def _chunk_helper(g, self, chunks, dim):
+    from torch.onnx.symbolic_opset9 import floor, expand
+    from torch.onnx.symbolic_opset11 import split
+    # Calculate chunk size for dynamic chunk
+    dim_size = g.op("Gather", g.op("Shape", self), dim, axis_i=0)
+    chunk_size_s = g.op("Sub", chunks, g.op("Constant", value_t=torch.tensor([1], dtype=torch.long)))
+    chunk_size = g.op("Div", g.op("Add", dim_size, chunk_size_s), chunks)
+    # Fix non-int chunk_size of opset11
+    if _export_onnx_opset_version >= 14:
+        chunk_size = floor(g, chunk_size)
+    # Create splits vector
+    chunk_vec = [expand(g, chunk_size, chunk_size_s, None),
+                 g.op("Sub", dim_size, g.op("Mul", chunk_size, chunk_size_s))]
+    chunk_vec = g.op("Concat", *chunk_vec, axis_i=0)
+    return split(g, self, chunk_vec, dim)
+
+
 def _topk_helper(g, input, k, dim, largest=True, sorted=False, out=None):
     if out is not None:
         _unimplemented("TopK", "Out parameter is not supported")
