@@ -373,16 +373,37 @@ def _sort_helper(g, input, dim, decending=True, out=None):
         return g.op("TopK", input, dim_size_, axis_i=dim, largest_i=decending, outputs=2)
 
 
+def _prim_constant_chunk_helper(g, self, chunks, dim):
+    input_shape = g.op("Shape", self)
+    axis = g.op("Constant", value_t=torch.tensor([dim], dtype=torch.long))
+    input_shape_dim = g.op("Gather", input_shape, axis, axis_i=0)
+    start = g.op("Constant", value_t=torch.tensor([0], dtype=torch.long))
+    chunk_size = g.op("Constant", value_t=torch.tensor([chunks], dtype=torch.long))
+    chunk_size_minus_1 = g.op("Constant", value_t=torch.tensor([chunks - 1], dtype=torch.long))
+    input_shape_dim_shift = g.op("Add", input_shape_dim, chunk_size_minus_1)
+    if _export_onnx_opset_version >= 14:
+        chunk_dim = g.op("Floor", g.op("Div", input_shape_dim_shift, chunk_size))
+    else:
+        chunk_dim = g.op("Div", input_shape_dim_shift, chunk_size)
+    res = []
+    for i in range(chunks):
+        index = g.op("Constant", value_t=torch.tensor([i + 1], dtype=torch.long))
+        end = g.op("Mul", chunk_dim, index)
+        res.append(g.op("Slice", self, start, end, axis))
+        start = end
+    return res
+
 def _chunk_helper(g, self, chunks, dim):
     from torch.onnx.symbolic_opset9 import floor, expand
     from torch.onnx.symbolic_opset11 import split
     # Calculate chunk size for dynamic chunk
     dim_size = g.op("Gather", g.op("Shape", self), dim, axis_i=0)
     chunk_size_s = g.op("Sub", chunks, g.op("Constant", value_t=torch.tensor([1], dtype=torch.long)))
-    chunk_size = g.op("Div", g.op("Add", dim_size, chunk_size_s), chunks)
     # Fix non-int chunk_size of opset11
     if _export_onnx_opset_version >= 14:
-        chunk_size = floor(g, chunk_size)
+        chunk_size = floor(g, g.op("Div", g.op("Add", dim_size, chunk_size_s), chunks))
+    else:
+        chunk_size = g.op("Div", g.op("Add", dim_size, chunk_size_s), chunks)
     # Create splits vector
     chunk_vec = [expand(g, chunk_size, chunk_size_s, None),
                  g.op("Sub", dim_size, g.op("Mul", chunk_size, chunk_size_s))]
