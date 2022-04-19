@@ -538,6 +538,29 @@ def compute_mask(D, H, W, window_size, shift_size, device):
 
 
 @lru_cache()
+def compute_mask_no_t_shift(D, H, W, window_size, shift_size, device):
+    """ Compute attnetion mask for input of size (D, H, W). @lru_cache caches each stage results. """
+
+    img_mask = torch.zeros((1, D, H, W, 1), device=device)  # 1 Dp Hp Wp 1
+    cnt = 0
+    slices = [[] for _ in range(2)]
+    for _i, _slice in enumerate(slices, 1):
+        _slice.append(slice(-window_size[_i]))
+        _slice.append(slice(-window_size[_i], -shift_size[_i]))
+        _slice.append(slice(-shift_size[_i]))
+    for h in slices[0]:
+        for w in slices[1]:
+            img_mask[:, slice(-window_size[0]), h, w, :] = cnt
+            cnt += 1
+    mask_windows = window_partition(img_mask, window_size)  # nW, ws[0]*ws[1]*ws[2], 1
+    mask_windows = mask_windows[..., 0]  # nW, ws[0]*ws[1]*ws[2]
+    attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+
+    return attn_mask
+
+
+@lru_cache()
 def compute_mask_no_t(D, H, W, window_size, shift_size, device):
     """ Compute attnetion mask for input of size (D, H, W). @lru_cache caches each stage results. """
 
@@ -996,6 +1019,68 @@ class TMSAG(nn.Module):
         #     _mask_args.append(mask_arg)
         #     print(mask_arg)
         attn_mask = compute_mask(*mask_arg, x.device)
+
+        for blk in self.blocks:
+            x = blk(x, attn_mask)
+
+        x = x.view(B, D, H, W, -1)
+        x = rearrange(x, 'b d h w c -> b c d h w')
+
+        return x
+
+
+class TMSAG1(nn.Module):
+    """ TMSAG for temporal window size 1 ([1, *, *])
+    """
+    def __init__(self,
+                 dim,
+                 input_resolution,
+                 depth,
+                 num_heads,
+                 window_size=(1, 8, 8),
+                 shift_size=None,
+                 mut_attn=True,
+                 mlp_ratio=2.,
+                 qkv_bias=False,
+                 qk_scale=None,
+                 drop_path=0.,
+                 norm_layer=nn.LayerNorm,
+                 use_checkpoint_attn=False,
+                 use_checkpoint_ffn=False
+                 ):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.window_size = window_size
+        self.shift_size = list(i // 2 for i in window_size) if shift_size is None else shift_size
+
+        # build blocks
+        self.blocks = nn.ModuleList([
+            TMSA(
+                dim=dim,
+                input_resolution=input_resolution,
+                num_heads=num_heads,
+                window_size=window_size,
+                shift_size=[0, 0, 0] if i % 2 == 0 else self.shift_size,
+                mut_attn=mut_attn,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+                norm_layer=norm_layer,
+                use_checkpoint_attn=use_checkpoint_attn,
+                use_checkpoint_ffn=use_checkpoint_ffn
+            )
+            for i in range(depth)])
+
+    def forward(self, x):
+        B, C, D, H, W = x.shape
+        window_size, shift_size = get_window_size((D, H, W), self.window_size, self.shift_size)
+        x = rearrange(x, 'b c d h w -> b d h w c')
+        Dp = int(np.ceil(D / window_size[0])) * window_size[0]
+        Hp = int(np.ceil(H / window_size[1])) * window_size[1]
+        Wp = int(np.ceil(W / window_size[2])) * window_size[2]
+        mask_arg = (Dp, Hp, Wp, window_size, shift_size)
+        attn_mask = compute_mask_no_t_shift(*mask_arg, x.device)
 
         for blk in self.blocks:
             x = blk(x, attn_mask)
