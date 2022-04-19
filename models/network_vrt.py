@@ -1203,19 +1203,19 @@ class Stage(nn.Module):
         self.linear1 = nn.Linear(dim, dim)
 
         # only self attention
-        self.residual_group2 = TMSAG(dim=dim,
-                                     input_resolution=input_resolution,
-                                     depth=depth - int(depth * mul_attn_ratio),
-                                     num_heads=num_heads,
-                                     window_size=window_size,
-                                     mut_attn=False,
-                                     mlp_ratio=mlp_ratio,
-                                     qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                     drop_path=drop_path,
-                                     norm_layer=norm_layer,
-                                     use_checkpoint_attn=True,
-                                     use_checkpoint_ffn=use_checkpoint_ffn
-                                     )
+        self.residual_group2 = TMSAG2(dim=dim,
+                                      input_resolution=input_resolution,
+                                      depth=depth - int(depth * mul_attn_ratio),
+                                      num_heads=num_heads,
+                                      window_size=window_size,
+                                      mut_attn=False,
+                                      mlp_ratio=mlp_ratio,
+                                      qkv_bias=qkv_bias, qk_scale=qk_scale,
+                                      drop_path=drop_path,
+                                      norm_layer=norm_layer,
+                                      use_checkpoint_attn=True,
+                                      use_checkpoint_ffn=use_checkpoint_ffn
+                                      )
         self.linear2 = nn.Linear(dim, dim)
 
         # parallel warping
