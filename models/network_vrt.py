@@ -1209,6 +1209,48 @@ class RTMSA(nn.Module):
         return x + self.linear(self.residual_group(x).transpose(1, 4)).transpose(1, 4)
 
 
+class RTMSA1(nn.Module):
+    """ RTMSA for temporal window size 1 ([1, *, *]).
+    """
+
+    def __init__(self,
+                 dim,
+                 input_resolution,
+                 depth,
+                 num_heads,
+                 window_size,
+                 mlp_ratio=2.,
+                 qkv_bias=True,
+                 qk_scale=None,
+                 drop_path=0.,
+                 norm_layer=nn.LayerNorm,
+                 use_checkpoint_attn=False,
+                 use_checkpoint_ffn=None
+                 ):
+        super(RTMSA1, self).__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
+
+        self.residual_group = TMSAG1(dim=dim,
+                                     input_resolution=input_resolution,
+                                     depth=depth,
+                                     num_heads=num_heads,
+                                     window_size=window_size,
+                                     mut_attn=False,
+                                     mlp_ratio=mlp_ratio,
+                                     qkv_bias=qkv_bias, qk_scale=qk_scale,
+                                     drop_path=drop_path,
+                                     norm_layer=norm_layer,
+                                     use_checkpoint_attn=use_checkpoint_attn,
+                                     use_checkpoint_ffn=use_checkpoint_ffn
+                                     )
+
+        self.linear = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        return x + self.linear(self.residual_group(x).transpose(1, 4)).transpose(1, 4)
+
+
 class RTMSA2(nn.Module):
     """ RTMSA for temporal window size 2 ([2, *, *]).
     """
@@ -1600,18 +1642,18 @@ class VRT(nn.Module):
         for i in range(7, len(depths)):
             if i in indep_reconsts:
                 self.stage8.append(
-                    RTMSA(dim=embed_dims[i],
-                          input_resolution=img_size,
-                          depth=depths[i],
-                          num_heads=num_heads[i],
-                          window_size=[1, window_size[1], window_size[2]],
-                          mlp_ratio=mlp_ratio,
-                          qkv_bias=qkv_bias, qk_scale=qk_scale,
-                          drop_path=dpr[sum(depths[:i]):sum(depths[:i + 1])],
-                          norm_layer=norm_layer,
-                          use_checkpoint_attn=use_checkpoint_attns[i],
-                          use_checkpoint_ffn=use_checkpoint_ffns[i]
-                          )
+                    RTMSA1(dim=embed_dims[i],
+                           input_resolution=img_size,
+                           depth=depths[i],
+                           num_heads=num_heads[i],
+                           window_size=[1, window_size[1], window_size[2]],
+                           mlp_ratio=mlp_ratio,
+                           qkv_bias=qkv_bias, qk_scale=qk_scale,
+                           drop_path=dpr[sum(depths[:i]):sum(depths[:i + 1])],
+                           norm_layer=norm_layer,
+                           use_checkpoint_attn=use_checkpoint_attns[i],
+                           use_checkpoint_ffn=use_checkpoint_ffns[i]
+                           )
                 )
             elif window_size[0] >= 2:
                 self.stage8.append(
