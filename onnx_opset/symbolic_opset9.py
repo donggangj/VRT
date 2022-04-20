@@ -3380,12 +3380,13 @@ def roll(g, self, shifts, dims):
                                        starts=[-shifts[i]],
                                        ends=[maxsize])
         shapes.append(shape)
-        shape = sym_help._slice_helper(g,
-                                       result,
-                                       axes=[dims[i]],
-                                       starts=[0],
-                                       ends=[-shifts[i]])
-        shapes.append(shape)
+        if 0 < shifts[i] < result.shape[dims[i]]:
+            shape = sym_help._slice_helper(g,
+                                           result,
+                                           axes=[dims[i]],
+                                           starts=[0],
+                                           ends=[-shifts[i]])
+            shapes.append(shape)
         result = g.op("Concat", *shapes, axis_i=dims[i])
 
     return result
