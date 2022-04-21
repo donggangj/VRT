@@ -3380,7 +3380,7 @@ def roll(g, self, shifts, dims):
                                        starts=[-shifts[i]],
                                        ends=[maxsize])
         shapes.append(shape)
-        if shifts[i] > 0:
+        if shifts[i] != 0:
             shape = sym_help._slice_helper(g,
                                            result,
                                            axes=[dims[i]],
